@@ -19,7 +19,7 @@
 
 /**
  * @file
- *   The CFS Limit Checker (LC) is a table driven application
+ *   The CFS Limit Checker (LC) is a table-driven application
  *   that provides telemetry monitoring and autonomous response
  *   capabilities to Core Flight Executive (cFE) based systems.
  */
@@ -28,11 +28,12 @@
 ** Includes
 *************************************************************************/
 #include "lc_app.h"
-#include "lc_events.h"
+#include "lc_eventids.h"
 #include "lc_msgids.h"
 #include "lc_perfids.h"
 #include "lc_version.h"
 #include "lc_cmds.h"
+#include "lc_dispatch.h"
 #include "lc_action.h"
 #include "lc_watch.h"
 #include "lc_utils.h"
@@ -178,9 +179,9 @@ void LC_AppMain(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_AppInit(void)
+CFE_Status_t LC_AppInit(void)
 {
-    int32 Status = CFE_SUCCESS;
+    CFE_Status_t Status = CFE_SUCCESS;
 
     /*
     ** Zero out the global data structures...
@@ -228,9 +229,9 @@ int32 LC_AppInit(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_EvsInit(void)
+CFE_Status_t LC_EvsInit(void)
 {
-    int32 Status = CFE_SUCCESS;
+    CFE_Status_t Status = CFE_SUCCESS;
 
     /*
     ** If an application event filter table is added
@@ -256,9 +257,9 @@ int32 LC_EvsInit(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_SbInit(void)
+CFE_Status_t LC_SbInit(void)
 {
-    int32 Status = CFE_SUCCESS;
+    CFE_Status_t Status = CFE_SUCCESS;
 
     /*
     ** Initialize housekeeping packet...
@@ -326,20 +327,20 @@ int32 LC_SbInit(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_TableInit(void)
+CFE_Status_t LC_TableInit(void)
 {
-    int32 Result;
+    CFE_Status_t Result;
 
 /*
 ** LC task use of Critical Data Store (CDS)
 **
 **    Global application data (LC_AppData)
-**    Watchpint results dump only table data
+**    Watchpoint results dump only table data
 **    Actionpoint results dump only table data
 **
 ** cFE Table Services use of CDS for LC task
 **
-**    Watchpint definition loadable table data
+**    Watchpoint definition loadable table data
 **    Actionpoint definition loadable table data
 **
 ** LC table initialization logic re CDS
@@ -378,35 +379,32 @@ int32 LC_TableInit(void)
     /*
     ** Create watchpoint and actionpoint result tables
     */
-    if ((Result = LC_CreateResultTables()) != CFE_SUCCESS)
-    {
-        return Result;
-    }
+    Result = LC_CreateResultTables();
 
     /*
     ** If CDS is enabled - create the 3 CDS areas managed by the LC task
     **  (continue with init, but disable CDS if unable to create all 3)
     */
-    if (LC_OperData.HaveActiveCDS)
+    if (Result == CFE_SUCCESS)
     {
-        if (LC_CreateTaskCDS() != CFE_SUCCESS)
+        if (LC_OperData.HaveActiveCDS)
         {
-            LC_OperData.HaveActiveCDS = false;
+            Result = LC_CreateTaskCDS();
+            if (Result != CFE_SUCCESS)
+            {
+                LC_OperData.HaveActiveCDS = false;
+            }
         }
-    }
-
-    /*
-    ** Create wp/ap definition tables - critical if CDS enabled
-    */
-    if ((Result = LC_CreateDefinitionTables()) != CFE_SUCCESS)
-    {
-        return Result;
+        /*
+         ** Create wp/ap definition tables - critical if CDS enabled
+         */
+        Result = LC_CreateDefinitionTables();
     }
 
     /*
     ** CDS still active only if we created 3 CDS areas and 2 critical tables
     */
-    if (LC_OperData.HaveActiveCDS)
+    if ((Result == CFE_SUCCESS) && (LC_OperData.HaveActiveCDS))
     {
         LC_OperData.TableResults |= LC_CDS_CREATED;
     }
@@ -415,77 +413,85 @@ int32 LC_TableInit(void)
     ** If any CDS area or critical table is not restored - initialize everything.
     **  (might be due to reset type, CDS disabled or corrupt, table restore error)
     */
-    if (((LC_OperData.TableResults & LC_WRT_CDS_RESTORED) == LC_WRT_CDS_RESTORED) &&
-        ((LC_OperData.TableResults & LC_ART_CDS_RESTORED) == LC_ART_CDS_RESTORED) &&
-        ((LC_OperData.TableResults & LC_APP_CDS_RESTORED) == LC_APP_CDS_RESTORED) &&
-        ((LC_OperData.TableResults & LC_WDT_TBL_RESTORED) == LC_WDT_TBL_RESTORED) &&
-        ((LC_OperData.TableResults & LC_ADT_TBL_RESTORED) == LC_ADT_TBL_RESTORED))
+    if (Result == CFE_SUCCESS)
     {
-        LC_OperData.TableResults |= LC_CDS_RESTORED;
-
-        /*
-        ** Get a pointer to the watchpoint definition table data...
-        */
-        Result = CFE_TBL_GetAddress((void *)&LC_OperData.WDTPtr, LC_OperData.WDTHandle);
-
-        if ((Result != CFE_SUCCESS) && (Result != CFE_TBL_INFO_UPDATED))
+        if (((LC_OperData.TableResults & LC_WRT_CDS_RESTORED) == LC_WRT_CDS_RESTORED) &&
+            ((LC_OperData.TableResults & LC_ART_CDS_RESTORED) == LC_ART_CDS_RESTORED) &&
+            ((LC_OperData.TableResults & LC_APP_CDS_RESTORED) == LC_APP_CDS_RESTORED) &&
+            ((LC_OperData.TableResults & LC_WDT_TBL_RESTORED) == LC_WDT_TBL_RESTORED) &&
+            ((LC_OperData.TableResults & LC_ADT_TBL_RESTORED) == LC_ADT_TBL_RESTORED))
         {
-            CFE_EVS_SendEvent(LC_WDT_GETADDR_ERR_EID, CFE_EVS_EventType_ERROR, "Error getting WDT address, RC=0x%08X",
-                              (unsigned int)Result);
-            return Result;
+            LC_OperData.TableResults |= LC_CDS_RESTORED;
+
+            /*
+            ** Get a pointer to the watchpoint definition table data...
+            */
+            Result = CFE_TBL_GetAddress((void *)&LC_OperData.WDTPtr, LC_OperData.WDTHandle);
+
+            if ((Result != CFE_SUCCESS) && (Result != CFE_TBL_INFO_UPDATED))
+            {
+                CFE_EVS_SendEvent(LC_WDT_GETADDR_ERR_EID, CFE_EVS_EventType_ERROR,
+                                  "Error getting WDT address, RC=0x%08X", (unsigned int)Result);
+            }
+
+            /*
+            ** Get a pointer to the actionpoint definition table data
+            */
+            if ((Result == CFE_SUCCESS) || (Result == CFE_TBL_INFO_UPDATED))
+            {
+                Result = CFE_TBL_GetAddress((void *)&LC_OperData.ADTPtr, LC_OperData.ADTHandle);
+
+                if ((Result != CFE_SUCCESS) && (Result != CFE_TBL_INFO_UPDATED))
+                {
+                    CFE_EVS_SendEvent(LC_ADT_GETADDR_ERR_EID, CFE_EVS_EventType_ERROR,
+                                      "Error getting ADT address, RC=0x%08X", (unsigned int)Result);
+                }
+            }
+        }
+        else
+        {
+            Result = LC_LoadDefaultTables();
         }
 
-        /*
-        ** Get a pointer to the actionpoint definition table data
-        */
-        Result = CFE_TBL_GetAddress((void *)&LC_OperData.ADTPtr, LC_OperData.ADTHandle);
-
-        if ((Result != CFE_SUCCESS) && (Result != CFE_TBL_INFO_UPDATED))
+        if (Result == CFE_TBL_INFO_UPDATED)
         {
-            CFE_EVS_SendEvent(LC_ADT_GETADDR_ERR_EID, CFE_EVS_EventType_ERROR, "Error getting ADT address, RC=0x%08X",
-                              (unsigned int)Result);
-            return Result;
-        }
-    }
-    else
-    {
-        Result = LC_LoadDefaultTables();
-        if ((Result != CFE_SUCCESS) && (Result != CFE_TBL_INFO_UPDATED))
-        {
-            return Result;
+            Result = CFE_SUCCESS;
         }
     }
 
     /*
     ** Create watchpoint hash tables -- also subscribes to watchpoint packets
     */
-    LC_CreateHashTable();
-
-    /*
-    ** Display results of CDS initialization (if enabled at startup)
-    */
-    if ((LC_OperData.TableResults & LC_CDS_ENABLED) == LC_CDS_ENABLED)
+    if (Result == CFE_SUCCESS)
     {
-        if ((LC_OperData.TableResults & LC_CDS_RESTORED) == LC_CDS_RESTORED)
+        LC_CreateHashTable();
+
+        /*
+        ** Display results of CDS initialization (if enabled at startup)
+        */
+        if ((LC_OperData.TableResults & LC_CDS_ENABLED) == LC_CDS_ENABLED)
         {
-            CFE_EVS_SendEvent(LC_CDS_RESTORED_INF_EID, CFE_EVS_EventType_INFORMATION,
-                              "Previous state restored from Critical Data Store");
+            if ((LC_OperData.TableResults & LC_CDS_RESTORED) == LC_CDS_RESTORED)
+            {
+                CFE_EVS_SendEvent(LC_CDS_RESTORED_INF_EID, CFE_EVS_EventType_INFORMATION,
+                                  "Previous state restored from Critical Data Store");
+            }
+            else if ((LC_OperData.TableResults & LC_CDS_UPDATED) == LC_CDS_UPDATED)
+            {
+                CFE_EVS_SendEvent(LC_CDS_UPDATED_INF_EID, CFE_EVS_EventType_INFORMATION,
+                                  "Default state loaded and written to CDS, activity mask = 0x%08X",
+                                  (unsigned int)LC_OperData.TableResults);
+            }
         }
-        else if ((LC_OperData.TableResults & LC_CDS_UPDATED) == LC_CDS_UPDATED)
+        else
         {
-            CFE_EVS_SendEvent(LC_CDS_UPDATED_INF_EID, CFE_EVS_EventType_INFORMATION,
-                              "Default state loaded and written to CDS, activity mask = 0x%08X",
+            CFE_EVS_SendEvent(LC_CDS_DISABLED_INF_EID, CFE_EVS_EventType_INFORMATION,
+                              "LC use of Critical Data Store disabled, activity mask = 0x%08X",
                               (unsigned int)LC_OperData.TableResults);
         }
     }
-    else
-    {
-        CFE_EVS_SendEvent(LC_CDS_DISABLED_INF_EID, CFE_EVS_EventType_INFORMATION,
-                          "LC use of Critical Data Store disabled, activity mask = 0x%08X",
-                          (unsigned int)LC_OperData.TableResults);
-    }
 
-    return CFE_SUCCESS;
+    return Result;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -494,11 +500,11 @@ int32 LC_TableInit(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_CreateResultTables(void)
+CFE_Status_t LC_CreateResultTables(void)
 {
-    int32  Result;
-    uint32 DataSize;
-    uint32 OptionFlags;
+    CFE_Status_t Result;
+    uint32       DataSize;
+    uint32       OptionFlags;
 
     /*
     ** Set "dump only" table option flags
@@ -516,8 +522,7 @@ int32 LC_CreateResultTables(void)
         CFE_EVS_SendEvent(LC_WRT_REGISTER_ERR_EID, CFE_EVS_EventType_ERROR, "Error registering WRT, RC=0x%08X",
                           (unsigned int)Result);
     }
-
-    if (Result == CFE_SUCCESS)
+    else
     {
         Result = CFE_TBL_GetAddress((void *)&LC_OperData.WRTPtr, LC_OperData.WRTHandle);
 
@@ -570,11 +575,11 @@ int32 LC_CreateResultTables(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_CreateDefinitionTables(void)
+CFE_Status_t LC_CreateDefinitionTables(void)
 {
-    int32  Result;
-    uint32 DataSize;
-    uint32 OptionFlags = CFE_TBL_OPT_DEFAULT;
+    CFE_Status_t Result;
+    uint32       DataSize;
+    uint32       OptionFlags = CFE_TBL_OPT_DEFAULT;
 
     /*
     ** If CDS is still enabled, try to register the 2 definition tables as critical
@@ -726,10 +731,10 @@ int32 LC_CreateDefinitionTables(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_CreateTaskCDS(void)
+CFE_Status_t LC_CreateTaskCDS(void)
 {
-    int32  Result;
-    uint32 DataSize;
+    CFE_Status_t Result;
+    uint32       DataSize;
 
     /*
     ** Create CDS and try to restore Watchpoint Results Table (WRT) data
@@ -853,9 +858,9 @@ int32 LC_CreateTaskCDS(void)
 /*                                                                 */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-int32 LC_LoadDefaultTables(void)
+CFE_Status_t LC_LoadDefaultTables(void)
 {
-    int32 Result;
+    CFE_Status_t Result;
 
     /*
     ** Load default watchpoint definition table (WDT)

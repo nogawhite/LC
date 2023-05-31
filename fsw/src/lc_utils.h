@@ -30,29 +30,6 @@
 #include "cfe.h"
 
 /**
- * \brief Verify message length
- *
- *  \par Description
- *       Checks if the actual length of a software bus message matches
- *       the expected length and sends an error event if a mismatch
- *       occures
- *
- *  \par Assumptions, External Events, and Notes:
- *       None
- *
- *  \param[in] MsgPtr         Pointer to Message
- *  \param[in] ExpectedLength The expected length of the message
- *                            based upon the command code
- *
- *  \return Boolean message length verification result
- *  \retval true  Length verification passed
- *  \retval false Length verification failed
- *
- *  \sa #LC_LEN_ERR_EID
- */
-bool LC_VerifyMsgLength(const CFE_MSG_Message_t *MsgPtr, size_t ExpectedLength);
-
-/**
  * \brief Manage LC application tables
  *
  *  \par Description
@@ -67,7 +44,7 @@ bool LC_VerifyMsgLength(const CFE_MSG_Message_t *MsgPtr, size_t ExpectedLength);
  *
  *  \sa #LC_WDT_GETADDR_ERR_EID, #LC_ADT_GETADDR_ERR_EID
  */
-int32 LC_ManageTables(void);
+CFE_Status_t LC_ManageTables(void);
 
 /**
  * \brief Write to Critical Data Store (CDS)
@@ -83,7 +60,7 @@ int32 LC_ManageTables(void);
  *  \return Execution status, see \ref CFEReturnCodes
  *  \retval #CFE_SUCCESS \copybrief CFE_SUCCESS
  */
-int32 LC_UpdateTaskCDS(void);
+CFE_Status_t LC_UpdateTaskCDS(void);
 
 /**
  * \brief Perform Routine Maintenance
@@ -105,6 +82,6 @@ int32 LC_UpdateTaskCDS(void);
  *  \return Execution status, see \ref CFEReturnCodes
  *  \retval #CFE_SUCCESS \copybrief CFE_SUCCESS
  */
-int32 LC_PerformMaintenance(void);
+CFE_Status_t LC_PerformMaintenance(void);
 
 #endif

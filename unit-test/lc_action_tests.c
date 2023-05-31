@@ -31,11 +31,12 @@
 #include "lc_msg.h"
 #include "lc_msgdefs.h"
 #include "lc_msgids.h"
-#include "lc_events.h"
+#include "lc_eventids.h"
 #include "lc_version.h"
 #include "lc_test_utils.h"
 #include "lc_utils.h"
 #include "lc_custom.h"
+#include "lc_platform_cfg.h"
 
 /* UT includes */
 #include "uttest.h"
@@ -1685,12 +1686,13 @@ void LC_ValidateRPN_Test_StackDepthZero2(void)
 
 void LC_ValidateRPN_Test_MaxRPNSize(void)
 {
+    int   i;
     uint8 Result;
 
     int32 IndexValue      = 0;
     int32 StackDepthValue = 0;
 
-    for (int i = 0; i < LC_MAX_RPN_EQU_SIZE; i++)
+    for (i = 0; i < LC_MAX_RPN_EQU_SIZE; i++)
     {
         LC_OperData.ADTPtr[0].RPNEquation[i] = LC_MAX_WATCHPOINTS - 1;
     }

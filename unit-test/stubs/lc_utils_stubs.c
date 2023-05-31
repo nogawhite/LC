@@ -31,13 +31,13 @@
  * Generated stub function for LC_ManageTables()
  * ----------------------------------------------------
  */
-int32 LC_ManageTables(void)
+CFE_Status_t LC_ManageTables(void)
 {
-    UT_GenStub_SetupReturnBuffer(LC_ManageTables, int32);
+    UT_GenStub_SetupReturnBuffer(LC_ManageTables, CFE_Status_t);
 
     UT_GenStub_Execute(LC_ManageTables, Basic, NULL);
 
-    return UT_GenStub_GetReturnValue(LC_ManageTables, int32);
+    return UT_GenStub_GetReturnValue(LC_ManageTables, CFE_Status_t);
 }
 
 /*
@@ -45,13 +45,13 @@ int32 LC_ManageTables(void)
  * Generated stub function for LC_PerformMaintenance()
  * ----------------------------------------------------
  */
-int32 LC_PerformMaintenance(void)
+CFE_Status_t LC_PerformMaintenance(void)
 {
-    UT_GenStub_SetupReturnBuffer(LC_PerformMaintenance, int32);
+    UT_GenStub_SetupReturnBuffer(LC_PerformMaintenance, CFE_Status_t);
 
     UT_GenStub_Execute(LC_PerformMaintenance, Basic, NULL);
 
-    return UT_GenStub_GetReturnValue(LC_PerformMaintenance, int32);
+    return UT_GenStub_GetReturnValue(LC_PerformMaintenance, CFE_Status_t);
 }
 
 /*
@@ -59,28 +59,11 @@ int32 LC_PerformMaintenance(void)
  * Generated stub function for LC_UpdateTaskCDS()
  * ----------------------------------------------------
  */
-int32 LC_UpdateTaskCDS(void)
+CFE_Status_t LC_UpdateTaskCDS(void)
 {
-    UT_GenStub_SetupReturnBuffer(LC_UpdateTaskCDS, int32);
+    UT_GenStub_SetupReturnBuffer(LC_UpdateTaskCDS, CFE_Status_t);
 
     UT_GenStub_Execute(LC_UpdateTaskCDS, Basic, NULL);
 
-    return UT_GenStub_GetReturnValue(LC_UpdateTaskCDS, int32);
-}
-
-/*
- * ----------------------------------------------------
- * Generated stub function for LC_VerifyMsgLength()
- * ----------------------------------------------------
- */
-bool LC_VerifyMsgLength(const CFE_MSG_Message_t *MsgPtr, size_t ExpectedLength)
-{
-    UT_GenStub_SetupReturnBuffer(LC_VerifyMsgLength, bool);
-
-    UT_GenStub_AddParam(LC_VerifyMsgLength, const CFE_MSG_Message_t *, MsgPtr);
-    UT_GenStub_AddParam(LC_VerifyMsgLength, size_t, ExpectedLength);
-
-    UT_GenStub_Execute(LC_VerifyMsgLength, Basic, NULL);
-
-    return UT_GenStub_GetReturnValue(LC_VerifyMsgLength, bool);
+    return UT_GenStub_GetReturnValue(LC_UpdateTaskCDS, CFE_Status_t);
 }
